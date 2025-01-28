@@ -24,15 +24,15 @@
       {
         packages = {
           default = pkgs.buildNpmPackage {
-            pname = "cisco-element-call-macro";
-            name = "cisco-element-call-macro";
+            pname = "cisco-element-call";
+            name = "cisco-element-call";
 
             meta = with lib; {
               description = "A call to host element call on a Cisco WebEx device.";
-              homepage = "https://github.com/spacebarchat/server";
-              license = licenses.agpl3Plus;
+              homepage = "https://github.com/TheArcaneBrony/cisco-element-call";
+              #license = licenses.agpl3Plus;
               platforms = platforms.all;
-              mainProgram = "exec";
+              mainProgram = "start-macro";
             };
 
             src = ./.;
@@ -50,8 +50,8 @@
               find node_modules -maxdepth 1 -type d -empty -delete
 
               mkdir -p $out
-              cp -r assets dist node_modules package.json $out/
-              makeWrapper ${pkgs.nodejs}/bin/node $out/bin/start-macro --prefix NODE_PATH : $out/node_modules --add-flags $out/$i
+              cp -r dist node_modules package.json $out/
+              makeWrapper ${pkgs.nodejs}/bin/node $out/bin/start-macro --prefix NODE_PATH : $out/node_modules --add-flags $out/dist/index.js
 
               set +x
               runHook postInstall
