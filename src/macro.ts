@@ -8,25 +8,14 @@ export async function run(deviceApi: XAPI) {
     const elementCallDomain = "ec.rory.gay";
     const displayName = "Room Kit Mini";
 
-    // Obtain from client devtools -> Storage -> Local Storage -> "matrix-auth-store"
-    // const clientAuth = {
-    //     "user_id": ...,
-    //     "device_id": ...,
-    //     "access_token": ...,
-    //     "passwordlessUser": true,
-    //     "tempPassword": ...
-    // };
+    // FOR MACRO: Obtain from client devtools -> Storage -> Local Storage -> "matrix-auth-store"
+    //@ts-ignore
+    const clientAuth: MatrixClientAuth = global.clientAuth;
+    // Optionally: hardcode value if needed
+    const matrixHomeserverBaseUrl = await getMatrixServerDomain(elementCallDomain);
     //#endregion
 
     //#region Constants
-    const KEYBOARD_TYPES = {
-        NUMERIC: "Numeric",
-        SINGLELINE: "SingleLine",
-        PASSWORD: "Password",
-        PIN: "PIN",
-    };
-
-    const MEETING_ID = "meetingID";
 
     /* This will be the Panel/Widget ID you are using in the UI Extension */
     const INROOMCONTROL_AUDIOCONTROL_PANELID = "ElementCallButton";
@@ -84,7 +73,7 @@ export async function run(deviceApi: XAPI) {
             const roomId = await getText({
                 Title: "Enter room ID",
                 Description: "... or press Next is a value is already there",
-                DefaultValue: await tryResolveRoomAlias(`#${alias}:${serverDomain}`)
+                DefaultValue: await tryResolveRoomAlias(`#${alias}:${serverDomain}`) ?? undefined
             });
             const roomEncryptionEnabled = await checkEncryptionEnabled(roomId);
             const password = await getText({
@@ -161,6 +150,11 @@ export async function run(deviceApi: XAPI) {
     //#endregion
 
     //#region Matrix API
+    async function mxHttpGet(uri: string){
+        //const server = await getMatrixServerDomain(elementCallDomain);
+        return await httpGet(`${matrixHomeserverBaseUrl}${uri}`, [`Authorization: Bearer ${clientAuth.access_token}`])
+    }
+
     async function getMatrixServerDomain(ecInstance: string) {
         const ecConfig = await httpGet(`https://${ecInstance}/config.json`);
         const serverDomain = ecConfig.default_server_config["m.homeserver"].base_url;
@@ -172,26 +166,36 @@ export async function run(deviceApi: XAPI) {
 
     }
 
-    async function tryResolveRoomAlias(alias: string) {
-        const server = await getMatrixServerDomain(elementCallDomain);
+    async function tryResolveRoomAlias(alias: string): Promise<string | null> {
         const encodedAlias = encodeURIComponent(alias);
         try {
             // const res = await httpGet("https://matrix.rory.gay/_matrix/client/v3/directory/room/" + encodeURIComponent("#proxmox:envs.net"));
-            const res = await httpGet(`${server}/_matrix/client/v3/directory/room/${encodedAlias}`);
+            const res = await mxHttpGet(`/_matrix/client/v3/directory/room/${encodedAlias}`);
             log(res);
             return res.room_id;
         } catch (e: any) {
             log(e);
+            return null;
         }
     }
 
     async function checkEncryptionEnabled(roomId: string) {
-        const server = await getMatrixServerDomain(elementCallDomain);
         const encodedRoomId = encodeURIComponent(roomId);
         try {
-            const res = await httpGet(`${server}/_matrix/client/v3/room/${encodedRoomId}/state/m.room.encryption/`);
+            const res = await mxHttpGet(`/_matrix/client/v3/room/${encodedRoomId}/state/m.room.encryption/`);
             return true;
         } catch (e) {
+            return false;
+        }
+    }
+
+    async function checkMatrixAuth(){
+        try {
+            const res = await mxHttpGet(`/_matrix/client/v3/account/whoami`);
+            log(res);
+            return !!res.user_id;
+        }
+        catch {
             return false;
         }
     }
@@ -200,7 +204,8 @@ export async function run(deviceApi: XAPI) {
 
 
     await registerHomeButton();
-    await tryResolveRoomAlias("#cisco:call.ems.host");
+    //await tryResolveRoomAlias("#cisco:call.ems.host");
+    console.log("Matrix auth valid:", await checkMatrixAuth());
     await deviceApi.Command.UserInterface.WebView.Clear();
 
 }
@@ -221,6 +226,14 @@ enum KeyboardTypes {
     SINGLELINE = "SingleLine",
     PASSWORD = "Password",
     PIN = "PIN",
+}
+
+interface MatrixClientAuth {
+    user_id: string,
+    device_id: string,
+    access_token: string,
+    passwordlessUser: boolean,
+    tempPassword: string
 }
 
 //#endregion

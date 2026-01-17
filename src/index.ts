@@ -2,7 +2,8 @@ import { XAPI, connect } from "jsxapi";
 import { run } from "./macro";
 require("dotenv").config();
 
-const clientAuth = {
+// @ts-ignore
+global.clientAuth = {
   "user_id": process.env.ROOMKIT_MATRIX_USER_ID,
   "device_id": process.env.ROOMKIT_MATRIX_DEVICE_ID,
   "access_token": process.env.ROOMKIT_MATRIX_ACCESS_TOKEN,
